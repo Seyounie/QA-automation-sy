@@ -10,8 +10,13 @@ CDP(Page.startScreencast)로 화면 프레임을 캡처해서
 """
 
 import asyncio
+import os
 import re
 from playwright.async_api import async_playwright
+
+# Render 등 리눅스 서버에서는 Edge 설치에 관리자 권한이 필요해서 설치가 막힘.
+# Render는 배포 환경에서 자동으로 RENDER=true 환경변수를 심어주므로 이걸로 분기.
+ON_RENDER = os.environ.get("RENDER") == "true"
 
 PRICE_PATTERN = re.compile(r"\d{1,3}(,\d{3})+")
 
@@ -28,7 +33,9 @@ class BrowserSession:
 
     async def start(self):
         self.playwright = await async_playwright().start()
-        launch_args = {"headless": False}
+        # headless=True: 실제 창은 안 띄우고 백그라운드에서만 돌림
+        # (어차피 화면은 웹소켓 스트리밍으로 보여줄 거라 이중 렌더링 안 해도 됨 -> 훨씬 가벼워짐)
+        launch_args = {"headless": True}
         if self.channel:
             launch_args["channel"] = self.channel
 
@@ -41,7 +48,13 @@ class BrowserSession:
         self.cdp.on("Page.screencastFrame", self._on_frame)
         await self.cdp.send(
             "Page.startScreencast",
-            {"format": "jpeg", "quality": 60, "maxWidth": 800, "maxHeight": 600},
+            {
+                "format": "jpeg",
+                "quality": 40,
+                "maxWidth": 640,
+                "maxHeight": 400,
+                "everyNthFrame": 2,  # 프레임 격으로 보내서 부하 줄임
+            },
         )
 
     def _on_frame(self, params):
@@ -74,7 +87,8 @@ _sessions: dict[str, BrowserSession] = {}
 
 async def get_session(name: str) -> BrowserSession:
     if name not in _sessions:
-        channel = "msedge" if name == "edge" else None
+        # 로컬(윈도우)에서는 진짜 msedge, Render 배포 환경에서는 chromium으로 대체
+        channel = "msedge" if (name == "edge" and not ON_RENDER) else None
         session = BrowserSession(name, channel=channel)
         await session.start()
         _sessions[name] = session
