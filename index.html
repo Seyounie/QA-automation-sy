@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>QA 자동화 모니터</title>
+<style>
+  body { font-family: sans-serif; max-width: 1000px; margin: 40px auto; }
+  .panels { display: flex; gap: 20px; }
+  .panel { flex: 1; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+  .panel-header { display:flex; justify-content:space-between; align-items:center; padding: 8px 12px; background:#f5f5f5; }
+  .panel img { width: 100%; display:block; background:#111; min-height: 260px; }
+  .result { padding: 8px 12px; font-size: 13px; }
+  .pass { color: #146c2e; }
+  .fail { color: #9c1c1c; }
+  button { padding: 6px 12px; cursor:pointer; }
+</style>
+</head>
+<body>
+  <h2>네이버 주가 검색 자동화 모니터</h2>
+  <p style="color:#666; font-size:13px;">
+    처음 로딩 시 브라우저가 자동으로 켜지기 때문에 화면이 뜨기까지 몇 초 걸릴 수 있습니다.
+  </p>
+
+  <div class="panels">
+    <div class="panel">
+      <div class="panel-header">
+        <strong>Chrome</strong>
+        <button onclick="runTest('chrome')">실행</button>
+      </div>
+      <img id="chrome-view" alt="chrome live view" />
+      <div id="chrome-result" class="result">대기중</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <strong>Edge</strong>
+        <button onclick="runTest('edge')">실행</button>
+      </div>
+      <img id="edge-view" alt="edge live view" />
+      <div id="edge-result" class="result">대기중</div>
+    </div>
+  </div>
+
+<script>
+  function connect(browser) {
+    const img = document.getElementById(`${browser}-view`);
+    const ws = new WebSocket(`ws://${location.host}/ws/${browser}`);
+
+    ws.onmessage = (event) => {
+      img.src = "data:image/jpeg;base64," + event.data;
+    };
+    ws.onclose = () => {
+      setTimeout(() => connect(browser), 2000); // 끊기면 자동 재연결
+    };
+  }
+
+  connect('chrome');
+  connect('edge');
+
+  async function runTest(browser) {
+    const resultBox = document.getElementById(`${browser}-result`);
+    resultBox.className = 'result';
+    resultBox.textContent = '실행 중...';
+
+    const res = await fetch(`/run/${browser}`, { method: 'POST' });
+    const data = await res.json();
+
+    if (data.error) {
+      resultBox.className = 'result fail';
+      resultBox.textContent = data.error;
+      return;
+    }
+
+    resultBox.className = 'result ' + (data.pass ? 'pass' : 'fail');
+    resultBox.textContent = data.pass ? `PASS ✅ (${data.value})` : 'FAIL ❌';
+  }
+</script>
+</body>
+</html>

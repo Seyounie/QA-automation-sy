@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: qa-automation-dashboard
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt && playwright install --with-deps chromium msedge"
+    startCommand: "uvicorn app:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.0
