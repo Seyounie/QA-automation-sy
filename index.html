@@ -44,7 +44,9 @@
 <script>
   function connect(browser) {
     const img = document.getElementById(`${browser}-view`);
-    const ws = new WebSocket(`ws://${location.host}/ws/${browser}`);
+    // https로 서빙되는 페이지(배포 환경)에서는 wss, http(로컬)에서는 ws
+    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${protocol}://${location.host}/ws/${browser}`);
 
     ws.onmessage = (event) => {
       img.src = "data:image/jpeg;base64," + event.data;
